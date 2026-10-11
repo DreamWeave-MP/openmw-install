@@ -42,7 +42,7 @@ local Methods: { [string]: unknown } = {}
 
 local function stateOf(context: Context): State
   local state = states[context]
-  assert(state, 'dreamwind.openmw: invalid context receiver')
+  assert(state, 'openmw: invalid context receiver')
   local generation = state.config:generation()
   if generation ~= state.generation then
     state.topLevel, state.loose, state.full = nil, nil, nil
@@ -177,10 +177,10 @@ end
 local function forced(options: { force: boolean? }?): boolean
   local selected: { force: boolean? } = options or {}
   for name in (selected :: unknown) :: { [string]: unknown } do
-    assert(name == 'force', `dreamwind.openmw: unknown activation option '{name}'`)
+    assert(name == 'force', `openmw: unknown activation option '{name}'`)
   end
 
-  assert(selected.force == nil or type(selected.force) == 'boolean', 'dreamwind.openmw: force needs a boolean')
+  assert(selected.force == nil or type(selected.force) == 'boolean', 'openmw: force needs a boolean')
   return selected.force == true
 end
 
@@ -197,7 +197,7 @@ function Methods.activateAll(self: Context, names: { string }, options: { force:
     if active[key] then continue end
 
     if not force and not inDataDirectories(config, name) then
-      error(`dreamwind.openmw: '{name}' isn't in the data folders; check the name, or pass \{ force = true \}`, 0)
+      error(`openmw: '{name}' isn't in the data folders; check the name, or pass \{ force = true \}`, 0)
     end
 
     active[key] = true
