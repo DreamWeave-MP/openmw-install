@@ -137,8 +137,7 @@ end
 
 function Methods.configuration(self: Context): configuration.Config return stateOf(self).config end
 
-function Methods.resolve(self: Context, path: string): string?
-  local state = stateOf(self)
+local function locate(state: State, path: string): string?
   if path ~= '' and not string.find(path, '/', 1, true) and not string.find(path, '\\', 1, true) then
     return topLevel(state)[string.lower(path)]
   end
@@ -149,8 +148,11 @@ function Methods.resolve(self: Context, path: string): string?
   return if found then found:path() else nil
 end
 
+function Methods.resolve(self: Context, path: string): string? return locate(stateOf(self), path) end
+
 function Methods.content(self: Context): { ContentEntry }
-  return [for name in stateOf(self).config:values('content') => { name = name, path = self:resolve(name) }]
+  local state = stateOf(self)
+  return [for name in state.config:values('content') => { name = name, path = locate(state, name) }]
 end
 
 function Methods.vfs(self: Context): vfs.VFS
