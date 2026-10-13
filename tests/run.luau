@@ -177,6 +177,26 @@ suite.describe('what a context answers', function()
     context:refresh()
     expect(context:resolve('late.esp')).toBe(jess.fs.join(data, 'Late.esp'))
   end)
+
+  suite.it('lists a long content list whole and in order, each name with what it resolves to', function()
+    local lines = { 'data=even', 'data=odd' }
+    for index = 1, 300 do table.insert(lines, `content=Plugin {index}.esp`) end
+
+    local directory, path = fixture('long', table.concat(lines, '\n') .. '\n')
+    local folders = { jess.fs.join(directory, 'even'), jess.fs.join(directory, 'odd') }
+    for _, folder in folders do io(fs.mkdir(folder, { recursive = true })) end
+
+    for index = 1, 300, 3 do io(fs.writeFile(jess.fs.join(folders[index % 2 + 1], `PLUGIN {index}.ESP`), '')) end
+
+    local context = openmw.new(path)
+    local content = context:content()
+    expect(#content).toBe(300)
+    for index, entry in content do
+      local held = if index % 3 == 1 then jess.fs.join(folders[index % 2 + 1], `PLUGIN {index}.ESP`) else nil
+      expect(entry).toEqual { name = `Plugin {index}.esp`, path = held }
+      expect(context:resolve(entry.name)).toBe(held)
+    end
+  end)
 end)
 
 suite.describe('activation', function()
@@ -233,6 +253,38 @@ suite.describe('activation', function()
     expect(context:deactivate('MINE.esp.BAK')).toBe(true)
     expect(context:configuration():values('content')).toEqual {}
     expect(context:deactivate('Other.esp')).toBe(false)
+  end)
+
+  suite.it('reaches a data folder only for a name the folders before it lack, and raises what listing it does', function()
+    local directory, path = fixture('reach', 'data=first\ndata=blocked\ndata=third\ncontent=Keep.esm\n')
+    local first, third = jess.fs.join(directory, 'first'), jess.fs.join(directory, 'third')
+    io(fs.mkdir(first, { recursive = true }))
+    io(fs.mkdir(third, { recursive = true }))
+    for _, name in { 'Early.esp', 'Also.esp', 'Spare.esp' } do io(fs.writeFile(jess.fs.join(first, name), '')) end
+
+    io(fs.writeFile(jess.fs.join(directory, 'blocked'), 'a file where a data folder belongs'))
+    io(fs.writeFile(jess.fs.join(third, 'Later.esp'), ''))
+    local context = openmw.new(path)
+    expect(context:activateAll({ 'early.esp', 'ALSO.ESP' })).toEqual { 'early.esp', 'ALSO.ESP' }
+    expect(function() context:activateAll({ 'Spare.esp', 'Later.esp' }) end).toThrow 'dream.fs.list'
+    expect(function() context:activateAll({ 'Later.esp', 'Spare.esp' }) end).toThrow 'dream.fs.list'
+    expect(function() context:activate('Nowhere.esp') end).toThrow 'dream.fs.list'
+    expect(context:configuration():values('content')).toEqual { 'Keep.esm', 'early.esp', 'ALSO.ESP' }
+    expect(context:activateAll({ 'Later.esp', 'Nowhere.esp' }, { force = true })).toEqual { 'Later.esp', 'Nowhere.esp' }
+    expect(context:activate('SPARE.ESP')).toBe(true)
+  end)
+
+  suite.it('folds the case of ASCII letters and of no others, for a name of any length', function()
+    local _, path = fixture('folding', 'content=Éclair.esp\ncontent=Plain.esp\n')
+    local context = openmw.new(path)
+    expect(context:activate('ÉCLAIR.ESP', { force = true })).toBe(false)
+    expect(context:deactivate('éclair.esp')).toBe(false)
+    expect(context:activate('éclair.esp', { force = true })).toBe(true)
+    expect(context:configuration():values('content')).toEqual { 'Éclair.esp', 'Plain.esp', 'éclair.esp' }
+    expect(context:deactivate('ÉCLAIR.esp')).toBe(true)
+    expect(context:deactivate('plain.es')).toBe(false)
+    expect(context:deactivate('plain.espx')).toBe(false)
+    expect(context:configuration():values('content')).toEqual { 'Plain.esp', 'éclair.esp' }
   end)
 end)
 
