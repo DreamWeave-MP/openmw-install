@@ -232,10 +232,15 @@ end
 
 function Methods.deactivate(self: Context, name: string): boolean
   local config = stateOf(self).config
+  local active = config:values('content')
+  if #active == 0 then return false end
+
+  local key = string.lower(name)
+  local length = #key
   local changed = false
-  for _, active in config:values('content') do
-    if string.lower(active) == string.lower(name) then
-      changed = config:remove('content', active) or changed
+  for _, spelling in active do
+    if #spelling == length and string.lower(spelling) == key then
+      changed = config:remove('content', spelling) or changed
     end
   end
 
