@@ -139,7 +139,9 @@ function Methods.configuration(self: Context): configuration.Config return state
 
 function Methods.resolve(self: Context, path: string): string?
   local state = stateOf(self)
-  if path ~= '' and not string.find(path, '[/\\]') then return topLevel(state)[string.lower(path)] end
+  if path ~= '' and not string.find(path, '/', 1, true) and not string.find(path, '\\', 1, true) then
+    return topLevel(state)[string.lower(path)]
+  end
 
   if not state.loose then state.loose = vfs.VFS.fromDirectories(state.config:dataDirectories()) end
 
