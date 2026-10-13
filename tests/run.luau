@@ -106,4 +106,134 @@ suite.describe('explicit OpenMW context', function()
   end)
 end)
 
+suite.describe('what a context answers', function()
+  suite.it('reads its properties from the configuration, afresh each time', function()
+    local directory, path =
+      fixture('properties', 'encoding=win1251\nfallback-archive=First.bsa\nfallback-archive=Second.bsa\ndata=data\n')
+    local context = openmw.new(path)
+    expect(context.fallbackArchives).toEqual { 'First.bsa', 'Second.bsa' }
+    expect(context.encoding).toBe 'win1251'
+    expect(context.userConfigDir).toBe(directory)
+    expect(context.dataLocal).toBeNil()
+    expect(context.writableDataDir).toBe(jess.fs.join(directory, 'data'))
+    expect(((context :: unknown) :: { [string]: unknown }).nothing).toBeNil()
+    context:configuration():set('data-local', 'local')
+    expect(context.dataLocal).toBe(jess.fs.join(directory, 'local'))
+    expect(context.writableDataDir).toBe(jess.fs.join(directory, 'local'))
+    expect(context.dataDirs).toEqual { jess.fs.join(directory, 'data'), jess.fs.join(directory, 'local') }
+    expect(openmw.fromConfig(context:configuration()):configuration()).toBe(context:configuration())
+  end)
+
+  suite.it('lists content with the file each name resolves to, whatever its case', function()
+    local directory, path = fixture(
+      'content',
+      'data=first\ndata=absent\ndata=second\ncontent=Shared.esp\ncontent=ONLY.ESP\ncontent=Folder.esp\ncontent=Missing.esp\n'
+    )
+    local first, second = jess.fs.join(directory, 'first'), jess.fs.join(directory, 'second')
+    io(fs.mkdir(jess.fs.join(first, 'Folder.esp'), { recursive = true }))
+    io(fs.mkdir(second, { recursive = true }))
+    io(fs.writeFile(jess.fs.join(first, 'Shared.esp'), 'first'))
+    io(fs.writeFile(jess.fs.join(first, 'Only.esp'), 'only'))
+    io(fs.writeFile(jess.fs.join(second, 'Shared.esp'), 'second'))
+    local context = openmw.new(path)
+    local content = context:content()
+    expect(content).toEqual {
+      { name = 'Shared.esp', path = jess.fs.join(second, 'Shared.esp') },
+      { name = 'ONLY.ESP', path = jess.fs.join(first, 'Only.esp') },
+      { name = 'Folder.esp' },
+      { name = 'Missing.esp' },
+    }
+
+    content[1].path = 'not-the-file'
+    table.remove(content)
+    expect(#context:content()).toBe(4)
+    expect(context:content()[1].path).toBe(jess.fs.join(second, 'Shared.esp'))
+    expect(openmw.new(select(2, fixture('no-content', 'data=first\n'))):content()).toEqual {}
+  end)
+
+  suite.it('resolves below the top level through the loose folders, by either separator', function()
+    local directory, path = fixture('nested', 'data=data\n')
+    local textures = jess.fs.join(directory, 'data', 'textures')
+    io(fs.mkdir(textures, { recursive = true }))
+    io(fs.writeFile(jess.fs.join(textures, 'Example.dds'), 'loose'))
+    local context = openmw.new(path)
+    local expected = jess.fs.join(textures, 'Example.dds')
+    expect(context:resolve('textures/example.dds')).toBe(expected)
+    expect(context:resolve('TEXTURES\\EXAMPLE.DDS')).toBe(expected)
+    expect(context:resolve('textures/missing.dds')).toBeNil()
+    expect(context:resolve('textures')).toBeNil()
+    expect(context:resolve('')).toBeNil()
+  end)
+
+  suite.it('keeps the top level it listed until it is refreshed', function()
+    local directory, path = fixture('refresh', 'data=data\n')
+    local data = jess.fs.join(directory, 'data')
+    io(fs.mkdir(data, { recursive = true }))
+    local context = openmw.new(path)
+    expect(context:resolve('Late.esp')).toBeNil()
+    io(fs.writeFile(jess.fs.join(data, 'Late.esp'), ''))
+    expect(context:resolve('late.esp')).toBeNil()
+    expect(context:content()).toEqual {}
+    context:refresh()
+    expect(context:resolve('late.esp')).toBe(jess.fs.join(data, 'Late.esp'))
+  end)
+end)
+
+suite.describe('activation', function()
+  suite.it('activates a batch in the order given, once for a name whatever its case', function()
+    local directory, path = fixture('batch', 'data=absent\ndata=first\ndata=second\ncontent=Keep.esm\n')
+    local first, second = jess.fs.join(directory, 'first'), jess.fs.join(directory, 'second')
+    io(fs.mkdir(jess.fs.join(first, 'Folder.esp'), { recursive = true }))
+    io(fs.mkdir(second, { recursive = true }))
+    io(fs.writeFile(jess.fs.join(first, 'Early.esp'), ''))
+    io(fs.writeFile(jess.fs.join(first, 'Early.esp.bak'), ''))
+    io(fs.writeFile(jess.fs.join(second, 'Later.esp'), ''))
+    local context = openmw.new(path)
+    local batch = { 'LATER.esp', 'keep.ESM', 'early.esp', 'Later.ESP', 'EARLY.ESP', 'Early.ESP.BAK' }
+    expect(context:activateAll(batch)).toEqual { 'LATER.esp', 'early.esp', 'Early.ESP.BAK' }
+    expect(context:configuration():values('content')).toEqual { 'Keep.esm', 'LATER.esp', 'early.esp', 'Early.ESP.BAK' }
+    expect(context:activateAll({})).toEqual {}
+    expect(context:activateAll(batch)).toEqual {}
+  end)
+
+  suite.it('refuses a name no data folder holds as a file, and names it', function()
+    local directory, path = fixture('refusals', 'data=data\ncontent=Keep.esm\n')
+    local data = jess.fs.join(directory, 'data')
+    io(fs.mkdir(jess.fs.join(data, 'Folder.esp'), { recursive = true }))
+    io(fs.writeFile(jess.fs.join(data, 'Mine.esp'), ''))
+    local context = openmw.new(path)
+    expect(function() context:activate('Folder.esp') end).toThrow "openmw: 'Folder.esp' isn't in the data folders; check the name, or pass { force = true }"
+    expect(function() context:activate('Mine.es') end).toThrow "openmw: 'Mine.es' isn't in the data folders"
+    expect(function() context:activate('Mine.esp2') end).toThrow "openmw: 'Mine.esp2' isn't in the data folders"
+    expect(function() context:activateAll({ 'Mine.esp', 'Unlisted.esp', 'Folder.esp' }) end).toThrow "openmw: 'Unlisted.esp' isn't"
+    expect(function() context:activateAll({ 'Mine.esp', ' Mine.esp' }) end).toThrow 'surrounding whitespace'
+    expect(context:configuration():values('content')).toEqual { 'Keep.esm' }
+    expect(context:activateAll({ 'Folder.esp', 'Unlisted.esp', 'FOLDER.ESP' }, { force = true })).toEqual { 'Folder.esp', 'Unlisted.esp' }
+    expect(function() context:activate('Other.esp', { force = false }) end).toThrow "openmw: 'Other.esp' isn't"
+    expect(context:configuration():values('content')).toEqual { 'Keep.esm', 'Folder.esp', 'Unlisted.esp' }
+  end)
+
+  suite.it('refuses an option it does not know before it looks at a name', function()
+    local _, path = fixture('options', 'content=Keep.esm\n')
+    local context = openmw.new(path)
+    local unknown = ({ forced = true } :: unknown) :: { force: boolean? }
+    local mistyped = ({ force = 'yes' } :: unknown) :: { force: boolean? }
+    expect(function() context:activate('Keep.esm', unknown) end).toThrow "openmw: unknown activation option 'forced'"
+    expect(function() context:activateAll({}, mistyped) end).toThrow 'openmw: force needs a boolean'
+  end)
+
+  suite.it('deactivates every spelling of a name, and nothing when none is active', function()
+    local _, path = fixture('spellings', 'content=Mine.esp\ncontent=Other.esp\ncontent=MINE.ESP\ncontent=Mine.esp.bak\n')
+    local context = openmw.new(path)
+    expect(context:deactivate('Absent.esp')).toBe(false)
+    expect(context:deactivate('mine.esp')).toBe(true)
+    expect(context:configuration():values('content')).toEqual { 'Other.esp', 'Mine.esp.bak' }
+    expect(context:deactivate('mine.esp')).toBe(false)
+    expect(context:deactivate('OTHER.ESP')).toBe(true)
+    expect(context:deactivate('MINE.esp.BAK')).toBe(true)
+    expect(context:configuration():values('content')).toEqual {}
+    expect(context:deactivate('Other.esp')).toBe(false)
+  end)
+end)
+
 return suite
