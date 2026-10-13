@@ -148,12 +148,7 @@ function Methods.resolve(self: Context, path: string): string?
 end
 
 function Methods.content(self: Context): { ContentEntry }
-  local result: { ContentEntry } = {}
-  for _, name in stateOf(self).config:values('content') do
-    table.insert(result, { name = name, path = self:resolve(name) })
-  end
-
-  return result
+  return [for name in stateOf(self).config:values('content') => { name = name, path = self:resolve(name) }]
 end
 
 function Methods.vfs(self: Context): vfs.VFS
