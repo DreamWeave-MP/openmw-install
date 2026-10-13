@@ -123,10 +123,13 @@ local function topLevel(state: State): { [string]: string }
   return result
 end
 
-local function inDataDirectories(config: configuration.Config, name: string): boolean
+--- Whether a data folder holds a file of the name whose lower case is `key`. A name keeps its
+--- length in lower case, so a file of another length is passed over as it is.
+local function inDataDirectories(config: configuration.Config, key: string): boolean
+  local length = #key
   for _, directory in config:dataDirectories() do
     for _, file in namesIn(directory) do
-      if string.lower(file) == string.lower(name) and isFile(jess.fs.join(directory, file)) then
+      if #file == length and string.lower(file) == key and isFile(jess.fs.join(directory, file)) then
         return true
       end
     end
@@ -195,7 +198,7 @@ function Methods.activateAll(self: Context, names: { string }, options: { force:
     local key = string.lower(name)
     if active[key] then continue end
 
-    if not force and not inDataDirectories(config, name) then
+    if not force and not inDataDirectories(config, key) then
       error(`openmw: '{name}' isn't in the data folders; check the name, or pass \{ force = true \}`, 0)
     end
 
