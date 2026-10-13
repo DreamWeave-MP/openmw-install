@@ -1,0 +1,94 @@
+--!strict
+-- What a command that opens one context and exits pays before anything is warm: this package's
+-- module compiled and run, with the modules it stands on loaded first and timed apart, then the
+-- first context, its first content list (which lists the data folders), and one activation. Run
+-- by `jess run --capability filesystem.read --capability filesystem.write --package .
+-- --package-path .. bench/cold.luau <scratch>`, on a release build. Each line is one sample of
+-- something a process does once, so compare medians over many runs. This file uses none of the
+-- l3i dialect, so that whatever the module's first use of it costs is paid inside the `require`
+-- timed here.
+local fs = require '@dream/fs'
+
+if not jess.bench.verified then
+  error('openmw bench: this jess was built without the verified toolchain: measure on a release build', 0)
+end
+
+local scratch: string? = ...
+local given: string = assert(scratch, 'openmw bench: the first argument is a scratch folder')
+
+local function io<Value>(value: Value?, message: string?, kind: dream_fs_ErrorKind?): Value
+  if not value then error(message or tostring(kind), 0) end
+
+  return value
+end
+
+local root = jess.fs.join(io(fs.absolute(given)), 'openmw-cold')
+local configPath = jess.fs.join(root, 'config', 'openmw.cfg')
+local Folders = 24
+local lines = { 'encoding=win1252' }
+local plugins = 0
+
+for index = 1, Folders do
+  local label = string.format('%03d', index)
+  local folder = jess.fs.join(root, 'mods', `mod-{label}`)
+
+  for _, below in { 'textures', 'meshes' } do
+    io(fs.mkdir(jess.fs.join(folder, below), { recursive = true }))
+  end
+
+  for _, name in { `Mod{label}.esp`, `Mod{label} Optional.esp`, `Mod{label} readme.txt` } do
+    io(fs.writeFile(jess.fs.join(folder, name), name))
+  end
+
+  table.insert(lines, `data="{folder}"`)
+end
+
+for index = 1, Folders do
+  table.insert(lines, `content=mod{string.format('%03d', index)}.ESP`)
+  plugins += 1
+end
+
+io(fs.mkdir(jess.fs.parent(configPath) :: string, { recursive = true }))
+io(fs.writeFile(configPath, table.concat(lines, '\n') .. '\n'))
+
+local started = os.clock()
+require '@openmw-config'
+require '@openmw-config/text'
+require '@openmw-config/paths'
+require '@vfs'
+local requiredBelow = os.clock() - started
+
+started = os.clock()
+local openmw = require '@openmw'
+local required = os.clock() - started
+
+started = os.clock()
+local context = openmw.new(configPath)
+local opened = os.clock() - started
+
+started = os.clock()
+local content = context:content()
+local listed = os.clock() - started
+
+started = os.clock()
+local activated = context:activate(`MOD{string.format('%03d', Folders)} OPTIONAL.ESP`)
+local checked = os.clock() - started
+
+io(fs.remove(root, { recursive = true }))
+
+local resolved = 0
+
+for _, entry in content do
+  if entry.path then resolved += 1 end
+end
+
+if #content ~= plugins or resolved ~= plugins or not activated then
+  error('openmw bench: the cold context is not what the files hold', 0)
+end
+
+print(`cold: require @openmw-config, its two modules and @vfs\t{string.format('%.9f', requiredBelow)}`)
+print(`cold: require @openmw, those loaded\t{string.format('%.9f', required)}`)
+print(`cold: first new, {Folders} data folders and {plugins} content files\t{string.format('%.9f', opened)}`)
+print(`cold: first content, listing the {Folders} folders\t{string.format('%.9f', listed)}`)
+print(`cold: first activate, a plugin in the last folder\t{string.format('%.9f', checked)}`)
+print(`cold: require @openmw to the activation\t{string.format('%.9f', required + opened + listed + checked)}`)
