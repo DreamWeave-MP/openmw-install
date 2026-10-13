@@ -57,12 +57,16 @@ jess run --package jpk/openmw --package-path jpk \
 
 | One cold process | Base, µs | Head, µs | Base / head |
 |---|---:|---:|---:|
-| require @openmw-config, its two modules and @vfs | 140887.2 | 140718.9 | no change |
-| require @openmw, those loaded | 2871.5 | 3105.3 | 0.92x |
-| first new, 24 data folders and 24 content files | 113.2 | 115.0 | no change |
-| first content, listing the 24 folders | 989.7 | 982.6 | no change |
-| first activate, a plugin in the last folder | 261.3 | 245.2 | 1.07x |
-| require @openmw to the activation | 4245.8 | 4450.1 | 0.95x |
+| require @openmw-config, its two modules and @vfs | 145660.7 | 145988.2 | no change |
+| require @openmw, those loaded | 2936.2 | 3220.8 | 0.91x |
+| first new, 24 data folders and 24 content files | 124.1 | 126.3 | no change |
+| first content, listing the 24 folders | 911.3 | 914.9 | no change |
+| first activate, a plugin in the last folder | 237.0 | 230.9 | no change |
+| require @openmw to the activation | 4205.5 | 4519.0 | 0.93x |
+
+The cold table is a second run of the protocol. The first agreed with it on every row but the
+activation, which it had at 1.07x (261.3 against 245.2); two more runs of forty-one put it at
+235.9 against 228.7 and 227.6 against 223.5.
 
 ### What moved, and why
 
@@ -81,11 +85,11 @@ What did not move is where the time is. A context that lists its folders afresh 
 762 `fs.stat` calls, one for every top-level entry. That is the filesystem's, and nothing exact
 takes it away (below).
 
-The cold process is the other side: the module takes 0.23 ms longer to `require` (0.92x), and a
-process that requires it, opens a context, lists content, activates one plugin and exits is 0.2 ms
-slower (0.95x). A module here costs about 12 µs a line to load, so every change for speed is also
-a few lines of load. Next to the 141 ms the modules below it take to load, it is 0.15 percent of
-the process.
+The cold process is the other side: the module takes 0.28 ms longer to `require` (0.91x), and a
+process that requires it, opens a context, lists content, activates one plugin and exits is 0.3 ms
+slower (0.93x). Its one activation, over 24 folders, gains nothing that shows. A module here costs
+about 12 µs a line to load, so every change for speed is also a few lines of load. Next to the
+146 ms the modules below it take to load, it is 0.2 percent of the process.
 
 ### A change at a time
 
