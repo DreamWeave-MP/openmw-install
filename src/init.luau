@@ -123,12 +123,22 @@ local function topLevel(state: State): { [string]: string }
   return result
 end
 
+--- The data folders as one activation finds them. A folder is listed when a name first reaches
+--- it, and that once, so a batch reads a folder's names one time, not once for every name.
+type Listing = { directories: { string }, names: { { string } } }
+
 --- Whether a data folder holds a file of the name whose lower case is `key`. A name keeps its
 --- length in lower case, so a file of another length is passed over as it is.
-local function inDataDirectories(config: configuration.Config, key: string): boolean
+local function inDataDirectories(listing: Listing, key: string): boolean
   local length = #key
-  for _, directory in config:dataDirectories() do
-    for _, file in namesIn(directory) do
+  for index, directory in listing.directories do
+    local names = listing.names[index]
+    if not names then
+      names = namesIn(directory)
+      listing.names[index] = names
+    end
+
+    for _, file in names do
       if #file == length and string.lower(file) == key and isFile(jess.fs.join(directory, file)) then
         return true
       end
@@ -193,13 +203,18 @@ function Methods.activateAll(self: Context, names: { string }, options: { force:
   for _, name in config:values('content') do active[string.lower(name)] = true end
 
   local additions: { string } = {}
+  local listing: Listing?
   for _, name in names do
     grammar.validate('content', name, config:userFile(), 0)
     local key = string.lower(name)
     if active[key] then continue end
 
-    if not force and not inDataDirectories(config, key) then
-      error(`openmw: '{name}' isn't in the data folders; check the name, or pass \{ force = true \}`, 0)
+    if not force then
+      local folders: Listing = listing or { directories = config:dataDirectories(), names = {} }
+      listing = folders
+      if not inDataDirectories(folders, key) then
+        error(`openmw: '{name}' isn't in the data folders; check the name, or pass \{ force = true \}`, 0)
+      end
     end
 
     active[key] = true
