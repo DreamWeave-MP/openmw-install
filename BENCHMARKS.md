@@ -1,6 +1,6 @@
 # OpenMW context benchmarks
 
-`bench/bench.luau` times the package through its public API over an install it writes: 98 data
+`bench/bench.jsl` times the package through its public API over an install it writes: 98 data
 folders (one of 240 top-level files, 96 the shape of a mod's, the engine's own), 128 content
 files spelled in three cases, and 326 loose assets below the top level. It opens a context, reads
 its properties, resolves content files by name with the folders listed already and afresh, lists
@@ -9,7 +9,7 @@ workload is warmed up, sized to a batch of about a tenth of a second, and report
 of seven batches, with a full collection between them. Every result is compared with what the
 writer of the install says it must be.
 
-`bench/cold.luau` times what one process pays once: the `require` of this package's module with
+`bench/cold.jsl` times what one process pays once: the `require` of this package's module with
 the modules it stands on loaded first, then the first context, its first content list and one
 activation over 24 folders. Each line is a single sample, so it is run many times and the medians
 are compared.
@@ -17,11 +17,11 @@ are compared.
 ```sh
 jess run --package jpk/openmw --package-path jpk \
   --capability filesystem.read --capability filesystem.write \
-  jpk/openmw/bench/bench.luau <scratch folder> [filter]
+  jpk/openmw/bench/bench.jsl <scratch folder> [filter]
 
 jess run --package jpk/openmw --package-path jpk \
   --capability filesystem.read --capability filesystem.write \
-  jpk/openmw/bench/cold.luau <scratch folder>
+  jpk/openmw/bench/cold.jsl <scratch folder>
 ```
 
 ## The move onto l3i 2.0, base against head
@@ -32,8 +32,8 @@ jess run --package jpk/openmw --package-path jpk \
   both sides, and the same sibling packages.
 - Base: `c9f7db4`, the package before the move, with both benches. Head: the source of
   `c15fea1`, which no later commit changes.
-- Protocol: the whole of `bench.luau` against base, then head, five times over, back to back
-  under one lock; each cell is the median of its five runs. `cold.luau` the same way, forty-one
+- Protocol: the whole of `bench.jsl` against base, then head, five times over, back to back
+  under one lock; each cell is the median of its five runs. `cold.jsl` the same way, forty-one
   times over. A difference under 5 percent is called no change.
 
 | Workload | Base, µs | Head, µs | Base / head |

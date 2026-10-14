@@ -3,7 +3,7 @@
 -- name (with the data folders listed already, and listing them afresh), the content list, loose
 -- assets through the VFS, and activation's check of the data folders. Run by `jess run
 -- --capability filesystem.read --capability filesystem.write --package . --package-path ..
--- bench/bench.luau <scratch> [filter]`, on a release build. Prints one line per workload: its
+-- bench/bench.jsl <scratch> [filter]`, on a release build. Prints one line per workload: its
 -- name, a tab, and the seconds one call takes. Every workload's result is compared with what the
 -- writer of the install says it must be, outside the time, so a path that stopped doing the work
 -- fails here.

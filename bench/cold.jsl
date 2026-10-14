@@ -3,7 +3,7 @@
 -- module compiled and run, with the modules it stands on loaded first and timed apart, then the
 -- first context, its first content list (which lists the data folders), and one activation. Run
 -- by `jess run --capability filesystem.read --capability filesystem.write --package .
--- --package-path .. bench/cold.luau <scratch>`, on a release build. Each line is one sample of
+-- --package-path .. bench/cold.jsl <scratch>`, on a release build. Each line is one sample of
 -- something a process does once, so compare medians over many runs. This file uses none of the
 -- l3i dialect, so that whatever the module's first use of it costs is paid inside the `require`
 -- timed here.
