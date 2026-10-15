@@ -7,7 +7,7 @@ local configuration = require '@openmw-config'
 local fs = require '@dream/fs'
 local grammar = require '@openmw-config/text'
 local paths = require '@openmw-config/paths'
-local vfs = require '@vfs'
+local vfsTypes = require '@vfs/types'
 
 export type ContentEntry = { name: string, path: string? }
 export type Context = {
@@ -21,7 +21,7 @@ export type Context = {
   read content: (self: Context) -> { ContentEntry },
   read resolve: (self: Context, path: string) -> string?,
   read readFile: (self: Context, path: string) -> buffer?,
-  read vfs: (self: Context) -> vfs.VFS,
+  read vfs: (self: Context) -> vfsTypes.VFS,
   read refresh: (self: Context) -> (),
   read activate: (self: Context, name: string, options: { force: boolean? }?) -> boolean,
   read activateAll: (self: Context, names: { string }, options: { force: boolean? }?) -> { string },
@@ -33,8 +33,8 @@ type State = {
   config: configuration.Config,
   generation: number,
   topLevel: { [string]: string }?,
-  loose: vfs.VFS?,
-  full: vfs.VFS?,
+  loose: vfsTypes.VFS?,
+  full: vfsTypes.VFS?,
 }
 
 local states = (setmetatable({}, { __mode = 'k' }) :: unknown) :: { [Context]: State }
@@ -155,9 +155,13 @@ local function locate(state: State, path: string): string?
     return topLevel(state)[string.lower(path)]
   end
 
-  if not state.loose then state.loose = vfs.VFS.fromDirectories(state.config:dataDirectories()) end
+  -- The VFS loads with the first path below the top level: listing content never needs it.
+  if not state.loose then
+    local vfs = require '@vfs'
+    state.loose = vfs.VFS.fromDirectories(state.config:dataDirectories())
+  end
 
-  local found = (state.loose :: vfs.VFS):getFile(path)
+  local found = (state.loose :: vfsTypes.VFS):getFile(path)
   return if found then found:path() else nil
 end
 
@@ -168,7 +172,8 @@ function Methods.content(self: Context): { ContentEntry }
   return [for name in state.config:values('content') => { name = name, path = locate(state, name) }]
 end
 
-function Methods.vfs(self: Context): vfs.VFS
+function Methods.vfs(self: Context): vfsTypes.VFS
+  local vfs = require '@vfs'
   local config = stateOf(self).config
   return vfs.VFS.fromDirectories(config:dataDirectories(), { archives = config:values('fallback-archive') })
 end
@@ -177,7 +182,7 @@ function Methods.readFile(self: Context, path: string): buffer?
   local state = stateOf(self)
   if not state.full then state.full = self:vfs() end
 
-  local file = (state.full :: vfs.VFS):getFile(path)
+  local file = (state.full :: vfsTypes.VFS):getFile(path)
   return if file then file:readAllBuffer() else nil
 end
 
