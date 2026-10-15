@@ -22,22 +22,22 @@ local function io<Value>(value: Value?, message: string?, kind: dream_fs_ErrorKi
   return value
 end
 
-local root = jess.fs.join(io(fs.absolute(given)), 'openmw-cold')
-local configPath = jess.fs.join(root, 'config', 'openmw.cfg')
+local root = fs.join(io(fs.absolute(given)), 'openmw-cold')
+local configPath = fs.join(root, 'config', 'openmw.cfg')
 local Folders = 24
 local lines = { 'encoding=win1252' }
 local plugins = 0
 
 for index = 1, Folders do
   local label = string.format('%03d', index)
-  local folder = jess.fs.join(root, 'mods', `mod-{label}`)
+  local folder = fs.join(root, 'mods', `mod-{label}`)
 
   for _, below in { 'textures', 'meshes' } do
-    io(fs.mkdir(jess.fs.join(folder, below), { recursive = true }))
+    io(fs.mkdir(fs.join(folder, below), { recursive = true }))
   end
 
   for _, name in { `Mod{label}.esp`, `Mod{label} Optional.esp`, `Mod{label} readme.txt` } do
-    io(fs.writeFile(jess.fs.join(folder, name), name))
+    io(fs.writeFile(fs.join(folder, name), name))
   end
 
   table.insert(lines, `data="{folder}"`)
@@ -48,7 +48,7 @@ for index = 1, Folders do
   plugins += 1
 end
 
-io(fs.mkdir(jess.fs.parent(configPath) :: string, { recursive = true }))
+io(fs.mkdir(fs.parent(configPath) :: string, { recursive = true }))
 io(fs.writeFile(configPath, table.concat(lines, '\n') .. '\n'))
 
 local started = os.clock()

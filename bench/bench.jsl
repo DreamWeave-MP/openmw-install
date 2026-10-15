@@ -77,7 +77,7 @@ local function io<Value>(value: Value?, message: string?, kind: dream_fs_ErrorKi
 end
 
 local given: string = assert(scratch, 'openmw bench: the first argument is a scratch folder')
-local root = jess.fs.join(io(fs.absolute(given)), 'openmw-bench')
+local root = fs.join(io(fs.absolute(given)), 'openmw-bench')
 
 do
   local stale, problem = fs.exists(root)
@@ -98,15 +98,15 @@ local function populate(directory: string, files: { string }, below: { string })
   table.insert(folders, directory)
 
   for _, name in files do
-    local path = jess.fs.join(directory, name)
+    local path = fs.join(directory, name)
     io(fs.writeFile(path, name))
     installed[string.lower(name)] = path
     topLevelFiles += 1
   end
 
   for _, relative in below do
-    local path = jess.fs.join(directory, relative)
-    io(fs.mkdir(jess.fs.parent(path) :: string, { recursive = true }))
+    local path = fs.join(directory, relative)
+    io(fs.mkdir(fs.parent(path) :: string, { recursive = true }))
     io(fs.writeFile(path, relative))
     table.insert(assets, relative)
     assetPathBytes += #path
@@ -119,8 +119,8 @@ local AssetFolders =
 
 local Masters = { 'Morrowind.esm', 'Tribunal.esm', 'Bloodmoon.esm' }
 local Mods = 96
-local resources = jess.fs.join(root, 'resources')
-local dataFiles = jess.fs.join(root, 'Data Files')
+local resources = fs.join(root, 'resources')
+local dataFiles = fs.join(root, 'Data Files')
 local content: { string }, optional: { string } = table.clone(Masters), {}
 
 --- `name` in one of three cases by `index`: a content line seldom spells a file the way the
@@ -132,7 +132,7 @@ local function spelled(name: string, index: number): string
 end
 
 do
-  populate(jess.fs.join(resources, 'vfs'), { 'builtin.omwscripts', 'version' }, { 'scripts/omw/camera.lua', 'shaders/water.frag' })
+  populate(fs.join(resources, 'vfs'), { 'builtin.omwscripts', 'version' }, { 'scripts/omw/camera.lua', 'shaders/water.frag' })
 
   local files = table.clone(Masters)
 
@@ -171,7 +171,7 @@ do
     if index == 10 or index == 50 then table.insert(modFiles, 'Shared Patch.esp') end
 
     populate(
-      jess.fs.join(root, 'mods', `mod-{label}`),
+      fs.join(root, 'mods', `mod-{label}`),
       modFiles,
       { `textures/mod{label}_a.dds`, `textures/mod{label}_b.dds`, `meshes/mod{label}.nif` }
     )
@@ -184,7 +184,7 @@ do
   end
 end
 
-local configPath = jess.fs.join(root, 'config', 'openmw.cfg')
+local configPath = fs.join(root, 'config', 'openmw.cfg')
 
 do
   local lines = { 'encoding=win1252', `resources="{resources}"` }
@@ -197,7 +197,7 @@ do
     table.insert(lines, `content={name}`)
   end
 
-  io(fs.mkdir(jess.fs.parent(configPath) :: string, { recursive = true }))
+  io(fs.mkdir(fs.parent(configPath) :: string, { recursive = true }))
   io(fs.writeFile(configPath, table.concat(lines, '\n') .. '\n'))
 end
 
@@ -214,7 +214,7 @@ workload(
   function(): unknown return openmw.new(configPath) end,
   function(result: unknown): boolean
     local opened = result :: openmw.Context
-    return opened.userConfigDir == jess.fs.parent(configPath) and #opened:configuration():values('content') == #content
+    return opened.userConfigDir == fs.parent(configPath) and #opened:configuration():values('content') == #content
   end
 )
 
@@ -231,7 +231,7 @@ workload(
     return total + #(context.encoding or '') + #(context.dataLocal or '') + #(context.writableDataDir or '')
   end,
   function(result: unknown): boolean
-    return result == #folders + #(jess.fs.parent(configPath) :: string) + #'win1252' + #dataFiles
+    return result == #folders + #(fs.parent(configPath) :: string) + #'win1252' + #dataFiles
   end
 )
 
@@ -258,7 +258,7 @@ workload(
     context:refresh()
     return context:resolve('MORROWIND.ESM')
   end,
-  function(result: unknown): boolean return result == jess.fs.join(dataFiles, 'Morrowind.esm') end
+  function(result: unknown): boolean return result == fs.join(dataFiles, 'Morrowind.esm') end
 )
 
 local function isContent(result: unknown): boolean
@@ -309,7 +309,7 @@ workload(
   function(): unknown return context:vfs() end,
   function(result: unknown): boolean
     local file = (result :: vfs.VFS):getFile(assets[#assets])
-    return file ~= nil and file:path() == jess.fs.join(folders[#folders], assets[#assets])
+    return file ~= nil and file:path() == fs.join(folders[#folders], assets[#assets])
   end
 )
 
