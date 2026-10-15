@@ -151,3 +151,51 @@ activateAll, 33 names: 18764.1 before, 18936.0 after).
   77 for `string.lower` and a string key, of the 210 ns a `resolve` takes. It needs
   `string.lower` to fold exactly the letters the pool does, which is the C locale's doing and not
   this package's, and it changes what a path that is not a string does. Not taken.
+
+## Which modules are native, and why
+
+Jess compiles to machine code only what is marked (`--!native` on a module, `@native` on one
+function), and every load pays for what is marked. A module carries `--!native` when a row below
+spends its time there and the module is small (12 KB or less); a larger module carries `@native`
+on the functions the row spends its time in, and nothing else.
+
+Measured 2026-10-14 with `jess 0.1.0`, the verified release build of jess `07c38cb` on l3i
+2.0.3, on the i7-10870H, the one-minute load 1.45 and 1.16 at the start of the two
+sessions. In each session the bench ran alternately on this package and on a copy of it with
+every module marked, three fresh runs of `bench/bench.jsl` each, every run's row the median of
+its batches; a column is the median of the three, and a ratio is against the all-marked runs of
+the same session. Which functions a row spends its time in comes from `jess run --profile` of
+that row alone, unmarked. The load cost is a fresh `jess run --package <this package>
+--package-path jpk` of a script that only requires `@openmw`, the two sides alternating, the
+median of five each after one warm-up.
+
+| Requiring `@openmw` | All marked | This state |
+| --- | ---: | ---: |
+| Unmarked | 0.122 s | 0.116 s |
+| Final | 0.114 s | 0.116 s |
+
+| Row | All marked (ms) | Unmarked / all marked | Final (ms) | Final / all marked |
+| --- | ---: | ---: | ---: | ---: |
+| new: a configuration of 98 data folders and 128 content files | 0.2526 | 0.975× | 0.2477 | 0.981× |
+| fromConfig: a context over a loaded configuration | 0.00048 | 1.025× | 0.00048 | 0.996× |
+| properties: the six, read once each | 0.03853 | 0.975× | 0.03668 | 0.952× |
+| resolve: 256 content file names, the folders listed already | 0.07592 | **1.351×** | 0.07511 | 0.989× |
+| resolve: one name, listing 98 folders of 556 files afresh | 4.119 | 0.992× | 4.025 | 0.977× |
+| content: 128 files, the folders listed already | 0.03419 | **1.504×** | 0.03240 | 0.948× |
+| content: 128 files, listing 98 folders afresh | 4.066 | 1.034× | 4.032 | 0.992× |
+| resolve: 326 loose assets below the top level, the VFS built already | 0.2520 | **1.080×** | 0.2492 | 0.989× |
+| readFile: 326 loose assets, the VFS built already | 5.182 | 1.033× | 5.305 | 1.024× |
+| vfs: 98 folders, no archive | 5.343 | 1.002× | 4.998 | 0.935× |
+| activate: refuses a name none of 98 folders holds | 0.9105 | **1.091×** | 0.9029 | 0.992× |
+| activateAll: checks 33 names and refuses the last | 1.442 | **1.211×** | 1.427 | 0.989× |
+| activateAll and deactivate: 32 plugins | 2.252 | **1.142×** | 2.199 | 0.977× |
+| activate and deactivate: a plugin in the last folder | 0.9720 | 1.032× | 0.9470 | 0.974× |
+| activate: a name already active | 0.01894 | **1.182×** | 0.01876 | 0.991× |
+| deactivate: a name not active | 0.00545 | **1.295×** | 0.00516 | 0.947× |
+
+What carries the directive: `init`, whole, the package's only module. Unmarked, requiring
+`@openmw` cost 0.005 s less than all marked (0.116 s against 0.122 s), and eight rows ran slower,
+1.08x to 1.50x: resolving and listing content (`inDataDirectories`, `locate`), and activating and
+deactivating (`Methods.activateAll`, `Methods.deactivate`). At 8.9 KB, compiling it costs less
+than one content resolution saves, so it stays marked, and no row is more than 5% slower than all
+marked.
