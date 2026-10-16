@@ -320,7 +320,7 @@ do
     `activate: refuses a name none of {#folders} folders holds`,
     function(): unknown
       -- `context:activate` throws on a name no data folder holds, which is the check this times.
-      local _, message = pcall(context.activate, context, absent)
+      local _, message = pcall(context.activate, context, absent, nil)
       return message
     end,
     function(result: unknown): boolean
@@ -340,7 +340,7 @@ do
     `activateAll: checks {#batch} names and refuses the last`,
     function(): unknown
       -- `context:activateAll` checks every name before it activates any, and throws on the last.
-      local _, message = pcall(context.activateAll, context, batch)
+      local _, message = pcall(context.activateAll, context, batch, nil)
       return message
     end,
     function(result: unknown): boolean
