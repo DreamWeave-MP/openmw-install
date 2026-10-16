@@ -319,8 +319,8 @@ do
   workload(
     `activate: refuses a name none of {#folders} folders holds`,
     function(): unknown
-      -- `context:activate` throws on a name no data folder holds, which is the check this times.
-      local _, message = pcall(context.activate, context, absent, nil)
+      -- `context:activate` answers nil and why for a name no data folder holds, the check timed.
+      local _, message = context:activate(absent)
       return message
     end,
     function(result: unknown): boolean
@@ -339,8 +339,8 @@ do
   workload(
     `activateAll: checks {#batch} names and refuses the last`,
     function(): unknown
-      -- `context:activateAll` checks every name before it activates any, and throws on the last.
-      local _, message = pcall(context.activateAll, context, batch, nil)
+      -- `context:activateAll` checks every name before it activates any, and refuses the last.
+      local _, message = context:activateAll(batch)
       return message
     end,
     function(result: unknown): boolean
@@ -354,7 +354,7 @@ do
   workload(
     `activateAll and deactivate: {#batch} plugins`,
     function(): unknown
-      local added = #context:activateAll(batch)
+      local added = #(context:activateAll(batch) or {})
       return added + #[for name in batch if context:deactivate(name) => name]
     end,
     function(result: unknown): boolean return result == 2 * #batch and #config:values('content') == #content end
@@ -368,7 +368,7 @@ do
 
   workload(
     'activate: a name already active',
-    function(): unknown return context:activate('morrowind.ESM') end,
+    function(): unknown return (context:activate('morrowind.ESM')) end,
     function(result: unknown): boolean return result == false end
   )
 

@@ -27,6 +27,12 @@ end
 
 local function read(path: string): string return io(fs.readFileString(path)) end
 
+--- What an activation that refused answered: it added nothing (nil), and this says why.
+local function refusal(added: unknown, problem: string?): string
+  expect(added).toBeNil()
+  return problem or error('the activation gave no reason', 2)
+end
+
 suite.describe('configuration ownership', function()
   suite.it('returns detached entry and chain snapshots', function()
     local _, path = fixture('snapshots', 'content=Keep.esm\n')
@@ -52,7 +58,7 @@ suite.describe('explicit OpenMW context', function()
     local context = openmw.new(path)
     expect(buffer.tostring(context:readFile('textures/example.dds') :: buffer)).toBe 'archived texture'
     expect(context:resolve('Hidden.esp')).toBeNil()
-    expect(function() context:activate('Hidden.esp') end).toThrow "isn't in the data folders"
+    expect(refusal(context:activate('Hidden.esp'))).toContain "isn't in the data folders"
     expect(table.isfrozen(context)).toBe(true)
     expect(function() vfs.serialize({ context = context }, 'json') end).toThrow 'function'
   end)
@@ -63,13 +69,13 @@ suite.describe('explicit OpenMW context', function()
     io(fs.mkdir(data, { recursive = true }))
     io(fs.writeFile(fs.join(data, 'Mine.esp'), ''))
     local context = openmw.new(path)
-    expect(function() context:activateAll({ 'Mine.esp', 'Typo.esp' }) end).toThrow "isn't in the data folders"
+    expect(refusal(context:activateAll({ 'Mine.esp', 'Typo.esp' }))).toContain "isn't in the data folders"
     expect(context:configuration():values('content')).toEqual { 'Missing.esm' }
-    expect(context:activate('MISSING.ESM')).toBe(false)
-    expect(context:activate('mine.esp')).toBe(true)
-    expect(context:activate('MINE.ESP')).toBe(false)
+    expect((context:activate('MISSING.ESM'))).toBe(false)
+    expect((context:activate('mine.esp'))).toBe(true)
+    expect((context:activate('MINE.ESP'))).toBe(false)
     io(fs.writeFile(fs.join(data, 'Late.esp'), ''))
-    expect(context:activate('late.esp')).toBe(true)
+    expect((context:activate('late.esp'))).toBe(true)
     expect(context:deactivate('MINE.ESP')).toBe(true)
   end)
 
@@ -210,10 +216,10 @@ suite.describe('activation', function()
     io(fs.writeFile(fs.join(second, 'Later.esp'), ''))
     local context = openmw.new(path)
     local batch = { 'LATER.esp', 'keep.ESM', 'early.esp', 'Later.ESP', 'EARLY.ESP', 'Early.ESP.BAK' }
-    expect(context:activateAll(batch)).toEqual { 'LATER.esp', 'early.esp', 'Early.ESP.BAK' }
+    expect((context:activateAll(batch))).toEqual { 'LATER.esp', 'early.esp', 'Early.ESP.BAK' }
     expect(context:configuration():values('content')).toEqual { 'Keep.esm', 'LATER.esp', 'early.esp', 'Early.ESP.BAK' }
-    expect(context:activateAll({})).toEqual {}
-    expect(context:activateAll(batch)).toEqual {}
+    expect((context:activateAll({}))).toEqual {}
+    expect((context:activateAll(batch))).toEqual {}
   end)
 
   suite.it('refuses a name no data folder holds as a file, and names it', function()
@@ -222,14 +228,14 @@ suite.describe('activation', function()
     io(fs.mkdir(fs.join(data, 'Folder.esp'), { recursive = true }))
     io(fs.writeFile(fs.join(data, 'Mine.esp'), ''))
     local context = openmw.new(path)
-    expect(function() context:activate('Folder.esp') end).toThrow "openmw: 'Folder.esp' isn't in the data folders; check the name, or pass { force = true }"
-    expect(function() context:activate('Mine.es') end).toThrow "openmw: 'Mine.es' isn't in the data folders"
-    expect(function() context:activate('Mine.esp2') end).toThrow "openmw: 'Mine.esp2' isn't in the data folders"
-    expect(function() context:activateAll({ 'Mine.esp', 'Unlisted.esp', 'Folder.esp' }) end).toThrow "openmw: 'Unlisted.esp' isn't"
-    expect(function() context:activateAll({ 'Mine.esp', ' Mine.esp' }) end).toThrow 'surrounding whitespace'
+    expect(refusal(context:activate('Folder.esp'))).toContain "openmw: 'Folder.esp' isn't in the data folders; check the name, or pass { force = true }"
+    expect(refusal(context:activate('Mine.es'))).toContain "openmw: 'Mine.es' isn't in the data folders"
+    expect(refusal(context:activate('Mine.esp2'))).toContain "openmw: 'Mine.esp2' isn't in the data folders"
+    expect(refusal(context:activateAll({ 'Mine.esp', 'Unlisted.esp', 'Folder.esp' }))).toContain "openmw: 'Unlisted.esp' isn't"
+    expect(refusal(context:activateAll({ 'Mine.esp', ' Mine.esp' }))).toContain 'surrounding whitespace'
     expect(context:configuration():values('content')).toEqual { 'Keep.esm' }
-    expect(context:activateAll({ 'Folder.esp', 'Unlisted.esp', 'FOLDER.ESP' }, { force = true })).toEqual { 'Folder.esp', 'Unlisted.esp' }
-    expect(function() context:activate('Other.esp', { force = false }) end).toThrow "openmw: 'Other.esp' isn't"
+    expect((context:activateAll({ 'Folder.esp', 'Unlisted.esp', 'FOLDER.ESP' }, { force = true }))).toEqual { 'Folder.esp', 'Unlisted.esp' }
+    expect(refusal(context:activate('Other.esp', { force = false }))).toContain "openmw: 'Other.esp' isn't"
     expect(context:configuration():values('content')).toEqual { 'Keep.esm', 'Folder.esp', 'Unlisted.esp' }
   end)
 
@@ -265,21 +271,21 @@ suite.describe('activation', function()
     io(fs.writeFile(fs.join(directory, 'blocked'), 'a file where a data folder belongs'))
     io(fs.writeFile(fs.join(third, 'Later.esp'), ''))
     local context = openmw.new(path)
-    expect(context:activateAll({ 'early.esp', 'ALSO.ESP' })).toEqual { 'early.esp', 'ALSO.ESP' }
-    expect(function() context:activateAll({ 'Spare.esp', 'Later.esp' }) end).toThrow 'dream.fs.list'
-    expect(function() context:activateAll({ 'Later.esp', 'Spare.esp' }) end).toThrow 'dream.fs.list'
-    expect(function() context:activate('Nowhere.esp') end).toThrow 'dream.fs.list'
+    expect((context:activateAll({ 'early.esp', 'ALSO.ESP' }))).toEqual { 'early.esp', 'ALSO.ESP' }
+    expect(refusal(context:activateAll({ 'Spare.esp', 'Later.esp' }))).toContain 'dream.fs.list'
+    expect(refusal(context:activateAll({ 'Later.esp', 'Spare.esp' }))).toContain 'dream.fs.list'
+    expect(refusal(context:activate('Nowhere.esp'))).toContain 'dream.fs.list'
     expect(context:configuration():values('content')).toEqual { 'Keep.esm', 'early.esp', 'ALSO.ESP' }
-    expect(context:activateAll({ 'Later.esp', 'Nowhere.esp' }, { force = true })).toEqual { 'Later.esp', 'Nowhere.esp' }
-    expect(context:activate('SPARE.ESP')).toBe(true)
+    expect((context:activateAll({ 'Later.esp', 'Nowhere.esp' }, { force = true }))).toEqual { 'Later.esp', 'Nowhere.esp' }
+    expect((context:activate('SPARE.ESP'))).toBe(true)
   end)
 
   suite.it('folds the case of ASCII letters and of no others, for a name of any length', function()
     local _, path = fixture('folding', 'content=Éclair.esp\ncontent=Plain.esp\n')
     local context = openmw.new(path)
-    expect(context:activate('ÉCLAIR.ESP', { force = true })).toBe(false)
+    expect((context:activate('ÉCLAIR.ESP', { force = true }))).toBe(false)
     expect(context:deactivate('éclair.esp')).toBe(false)
-    expect(context:activate('éclair.esp', { force = true })).toBe(true)
+    expect((context:activate('éclair.esp', { force = true }))).toBe(true)
     expect(context:configuration():values('content')).toEqual { 'Éclair.esp', 'Plain.esp', 'éclair.esp' }
     expect(context:deactivate('ÉCLAIR.esp')).toBe(true)
     expect(context:deactivate('plain.es')).toBe(false)

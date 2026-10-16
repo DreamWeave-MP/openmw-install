@@ -23,8 +23,8 @@ export type Context = {
   read readFile: (self: Context, path: string) -> buffer?,
   read vfs: (self: Context) -> vfsTypes.VFS,
   read refresh: (self: Context) -> (),
-  read activate: (self: Context, name: string, options: { force: boolean? }?) -> boolean,
-  read activateAll: (self: Context, names: { string }, options: { force: boolean? }?) -> { string },
+  read activate: (self: Context, name: string, options: { force: boolean? }?) -> (boolean?, string?),
+  read activateAll: (self: Context, names: { string }, options: { force: boolean? }?) -> ({ string }?, string?),
   read deactivate: (self: Context, name: string) -> boolean,
   read save: (self: Context) -> { path: string, backup: string? },
 }
@@ -94,18 +94,20 @@ local function new(path: string, options: configuration.Options?): Context
   return fromConfig(configuration.new(path, options))
 end
 
-local function namesIn(directory: string): { string }
+--- The names in a data folder, none for one that isn't there, or nil and why it couldn't be listed.
+local function namesIn(directory: string): ({ string }?, string?)
   local names, message, kind = fs.list(directory)
-  if not names and kind == 'notFound' then return {} end
+  if not names and kind == 'notFound' then return {}, nil end
 
-  return assert(names, message)
+  return names, message
 end
 
-local function isFile(path: string): boolean
+--- Whether `path` is a file, and why that couldn't be told.
+local function isFile(path: string): (boolean, string?)
   local info, message = fs.stat(path)
-  if message then error(message, 0) end
+  if message then return false, message end
 
-  return info ~= nil and info.isFile
+  return info ~= nil and info.isFile, nil
 end
 
 local function topLevel(state: State): { [string]: string }
@@ -113,9 +115,14 @@ local function topLevel(state: State): { [string]: string }
 
   local result: { [string]: string } = {}
   for _, directory in state.config:dataDirectories() do
-    for _, name in namesIn(directory) do
+    local names, problem = namesIn(directory)
+    if not names then error(problem, 0) end
+
+    for _, name in names do
       local path = fs.join(directory, name)
-      if isFile(path) then result[string.lower(name)] = path end
+      local file, failure = isFile(path)
+      if failure then error(failure, 0) end
+      if file then result[string.lower(name)] = path end
     end
   end
 
@@ -127,25 +134,31 @@ end
 --- it, and that once, so a batch reads a folder's names one time, not once for every name.
 type Listing = { directories: { string }, names: { { string } } }
 
---- Whether a data folder holds a file of the name whose lower case is `key`. A name keeps its
---- length in lower case, so a file of another length is passed over as it is.
-local function inDataDirectories(listing: Listing, key: string): boolean
+--- Whether a data folder holds a file of the name whose lower case is `key`, and why a folder
+--- couldn't be listed or a file told from a folder. A name keeps its length in lower case, so a
+--- file of another length is passed over as it is.
+local function inDataDirectories(listing: Listing, key: string): (boolean, string?)
   local length = #key
   for index, directory in listing.directories do
     local names = listing.names[index]
     if not names then
-      names = namesIn(directory)
-      listing.names[index] = names
+      local listed, problem = namesIn(directory)
+      if not listed then return false, problem end
+
+      names = listed
+      listing.names[index] = listed
     end
 
     for _, file in names do
-      if #file == length and string.lower(file) == key and isFile(fs.join(directory, file)) then
-        return true
-      end
+      if #file ~= length or string.lower(file) ~= key then continue end
+
+      local found, problem = isFile(fs.join(directory, file))
+      if problem then return false, problem end
+      if found then return true, nil end
     end
   end
 
-  return false
+  return false, nil
 end
 
 function Methods.configuration(self: Context): configuration.Config return stateOf(self).config end
@@ -201,7 +214,10 @@ local function forced(options: { force: boolean? }?): boolean
   return selected.force == true
 end
 
-function Methods.activateAll(self: Context, names: { string }, options: { force: boolean? }?): { string }
+--- Adds every name not already in the content list, in order, and answers the names it added; or
+--- adds none and answers nil and why, for a name openmw.cfg can't spell, a file no data folder
+--- holds (unless `force`), or a data folder it couldn't list. An option it doesn't know raises.
+function Methods.activateAll(self: Context, names: { string }, options: { force: boolean? }?): ({ string }?, string?)
   local config = stateOf(self).config
   local force = forced(options)
   local active: { [string]: boolean } = {}
@@ -210,15 +226,20 @@ function Methods.activateAll(self: Context, names: { string }, options: { force:
   local additions: { string } = {}
   local listing: Listing?
   for _, name in names do
-    grammar.validate('content', name, config:userFile(), 0)
+    local reason = grammar.problem('content', name)
+    if reason then return nil, `openmw: content '{name}': {reason}` end
+
     local key = string.lower(name)
     if active[key] then continue end
 
     if not force then
       local folders: Listing = listing or { directories = config:dataDirectories(), names = {} }
       listing = folders
-      if not inDataDirectories(folders, key) then
-        error(`openmw: '{name}' isn't in the data folders; check the name, or pass \{ force = true \}`, 0)
+      local found, problem = inDataDirectories(folders, key)
+      if problem then return nil, problem end
+
+      if not found then
+        return nil, `openmw: '{name}' isn't in the data folders; check the name, or pass \{ force = true \}`
       end
     end
 
@@ -228,11 +249,15 @@ function Methods.activateAll(self: Context, names: { string }, options: { force:
 
   for _, name in additions do config:append('content', name) end
 
-  return additions
+  return additions, nil
 end
 
-function Methods.activate(self: Context, name: string, options: { force: boolean? }?): boolean
-  return #self:activateAll({ name }, options) > 0
+--- Adds `name` as `activateAll` does: whether it was added, or nil and why it can't be.
+function Methods.activate(self: Context, name: string, options: { force: boolean? }?): (boolean?, string?)
+  local added, problem = self:activateAll({ name }, options)
+  if not added then return nil, problem end
+
+  return #added > 0, nil
 end
 
 function Methods.deactivate(self: Context, name: string): boolean
