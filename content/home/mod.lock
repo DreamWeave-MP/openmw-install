@@ -1,0 +1,52 @@
+{
+  "schema_version": "3",
+  "document": "lock",
+  "project": "34eff1d9-fd7e-4c17-bf34-cdb8bf3ad546",
+  "note": "Written by CI when a release tag is pushed: what each published release's archive contains. Do not edit.",
+  "releases": [
+    {
+      "version": "0.1.0",
+      "locked_from": "1a7365feb778c6514bca61777e464fd57e120a00",
+      "artifacts": [
+        {
+          "id": "jpk",
+          "format": "jpk",
+          "filename": "org.dreamweave.openmw-install-0.1.0.jpk",
+          "media_type": "application/vnd.jess.jpk",
+          "size": 11218,
+          "digests": {
+            "sha256": "bccf5abf697d83b5b8083346f6f8da251535d8b41dbd431d1a236b3a52c82ad5"
+          },
+          "jess": {
+            "package": "org.dreamweave.openmw-install",
+            "jess_api": "1",
+            "content_digest": "d148659c977dc5a08240357b26ff38fb2d012a64e7e51370c0b0d699c43c6e6d",
+            "dependencies": {
+              "org.dreamweave.openmw-config": "4",
+              "org.dreamweave.vfs": "2"
+            }
+          }
+        }
+      ],
+      "runtimes": {},
+      "platforms": [],
+      "provides": [],
+      "relationships": [],
+      "components": [
+        {
+          "id": "main",
+          "name": "openmw-install",
+          "path": ".",
+          "required": true,
+          "default": true,
+          "requires": [],
+          "conflicts": [],
+          "suggested_with": []
+        }
+      ],
+      "groups": [],
+      "extensions": {},
+      "critical_extensions": []
+    }
+  ]
+}
