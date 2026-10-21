@@ -8,7 +8,7 @@ include = ["src", "tests"]
 tests = ["tests/run.jsl", "tests/style.jsl"]
 
 [dependencies]
-"org.dreamweave.openmw-config" = "0.1"
+"org.dreamweave.openmw-config" = "4"
 "org.dreamweave.vfs" = "0.1"
 
 # The suite builds its fallback archive with the archive module directly.
