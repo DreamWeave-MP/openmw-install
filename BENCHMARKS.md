@@ -62,7 +62,7 @@ jess run --package jpk/openmw --package-path jpk \
 | first new, 24 data folders and 24 content files | 124.1 | 126.3 | no change |
 | first content, listing the 24 folders | 911.3 | 914.9 | no change |
 | first activate, a plugin in the last folder | 237.0 | 230.9 | no change |
-| require @openmw to the activation | 4205.5 | 4519.0 | 0.93x |
+| require @openmw-install to the activation | 4205.5 | 4519.0 | 0.93x |
 
 The cold table is a second run of the protocol. The first agreed with it on every row but the
 activation, which it had at 1.07x (261.3 against 245.2); two more runs of forty-one put it at
@@ -99,7 +99,7 @@ cold, alternating, medians.
 | Commit | What it does | Row | Before, µs | After, µs | Before / after |
 |---|---|---|---:|---:|---:|
 | `cd968d8` | the content list as a comprehension | content, listed already | 50.4 | 51.3 | no change |
-| | | require @openmw | 2944.6 | 3078.9 | no change (0.96x) |
+| | | require @openmw-install | 2944.6 | 3078.9 | no change (0.96x) |
 | `4bf3d6a` | two plain searches for a separator | resolve, 256 names | 76.5 | 51.3 | 1.49x |
 | | | content, listed already | 51.3 | 38.5 | 1.33x |
 | | | resolve, 326 loose assets | 233.5 | 217.2 | 1.08x |
@@ -109,7 +109,7 @@ cold, alternating, medians.
 | | | activateAll, 33 names | 18155.6 | 16212.3 | 1.12x |
 | `a6dba81` | a folder listed once for a batch | activateAll, 33 names | 16212.3 | 1364.9 | 11.88x |
 | | | activateAll and deactivate, 32 | 16791.7 | 2527.9 | 6.64x |
-| | | require @openmw | 3099.2 | 3178.9 | no change (0.97x) |
+| | | require @openmw-install | 3099.2 | 3178.9 | no change (0.97x) |
 | `c15fea1` | the name lowered once to deactivate | deactivate, not active | 17.1 | 4.8 | 3.59x |
 | | | activateAll and deactivate, 32 | 2527.9 | 2104.7 | 1.20x |
 
@@ -125,7 +125,7 @@ nothing warm, and costs about 0.1 ms of `require` (0.08, 0.15 and 0.13 ms in thr
 forty-one). The activation check is the other loop the dialect expresses exactly, as `any` over
 two generators, and it stays a loop because of what it costs to load. An earlier shape of the same
 changes (the folder listing in a function of its own), with its dialect constructs put back to
-loops one at a time, in two runs of forty-one cold processes each, `require @openmw`:
+loops one at a time, in two runs of forty-one cold processes each, `require @openmw-install`:
 
 | Run | Payload | µs | Against no dialect |
 |---|---|---:|---:|
@@ -166,10 +166,10 @@ every module marked, three fresh runs of `bench/bench.jsl` each, every run's row
 its batches; a column is the median of the three, and a ratio is against the all-marked runs of
 the same session. Which functions a row spends its time in comes from `jess run --profile` of
 that row alone, unmarked. The load cost is a fresh `jess run --package <this package>
---package-path jpk` of a script that only requires `@openmw`, the two sides alternating, the
+--package-path jpk` of a script that only requires `@openmw-install`, the two sides alternating, the
 median of five each after one warm-up.
 
-| Requiring `@openmw` | All marked | This state |
+| Requiring `@openmw-install` | All marked | This state |
 | --- | ---: | ---: |
 | Unmarked | 0.122 s | 0.116 s |
 | Final | 0.114 s | 0.116 s |
@@ -194,7 +194,7 @@ median of five each after one warm-up.
 | deactivate: a name not active | 0.00545 | **1.295×** | 0.00516 | 0.947× |
 
 What carries the directive: `init`, whole, the package's only module. Unmarked, requiring
-`@openmw` cost 0.005 s less than all marked (0.116 s against 0.122 s), and eight rows ran slower,
+`@openmw-install` cost 0.005 s less than all marked (0.116 s against 0.122 s), and eight rows ran slower,
 1.08x to 1.50x: resolving and listing content (`inDataDirectories`, `locate`), and activating and
 deactivating (`Methods.activateAll`, `Methods.deactivate`). At 8.9 KB, compiling it costs less
 than one content resolution saves, so it stays marked, and no row is more than 5% slower than all

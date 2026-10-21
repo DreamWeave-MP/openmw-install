@@ -1,7 +1,7 @@
 manifest_version = 1
 
 [package]
-id = "org.dreamweave.openmw"
+id = "org.dreamweave.openmw-install"
 version = "0.1.0"
 jess_api = "1"
 include = ["src", "tests"]
@@ -16,12 +16,12 @@ tests = ["tests/run.jsl", "tests/style.jsl"]
 "org.dreamweave.dream-archive" = "0.1"
 
 [modules]
-"@openmw" = "src/init.jsl"
+"@openmw-install" = "src/init.jsl"
 
 # The module is inert API: it does nothing until something requires it, and runs with the
 # authority of whatever calls it.
 
 [[layer]]
-id = "openmw.core"
+id = "openmw-install.core"
 requires = ["openmw-config.core", "vfs.core"]
-exports = ["@openmw"]
+exports = ["@openmw-install"]

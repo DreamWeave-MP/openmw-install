@@ -1,7 +1,7 @@
 --!strict
 --!native
 local configuration = require '@openmw-config'
-local openmw = require '@openmw'
+local openmw = require '@openmw-install'
 local fs = require '@dream/fs'
 local archive = require '@dream-archive'
 local vfs = require '@vfs'

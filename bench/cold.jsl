@@ -59,7 +59,7 @@ require '@vfs'
 local requiredBelow = os.clock() - started
 
 started = os.clock()
-local openmw = require '@openmw'
+local openmw = require '@openmw-install'
 local required = os.clock() - started
 
 started = os.clock()
@@ -91,4 +91,4 @@ print(`cold: require @openmw, those loaded\t{string.format('%.9f', required)}`)
 print(`cold: first new, {Folders} data folders and {plugins} content files\t{string.format('%.9f', opened)}`)
 print(`cold: first content, listing the {Folders} folders\t{string.format('%.9f', listed)}`)
 print(`cold: first activate, a plugin in the last folder\t{string.format('%.9f', checked)}`)
-print(`cold: require @openmw to the activation\t{string.format('%.9f', required + opened + listed + checked)}`)
+print(`cold: require @openmw-install to the activation\t{string.format('%.9f', required + opened + listed + checked)}`)

@@ -9,7 +9,7 @@
 -- fails here.
 local configuration = require '@openmw-config'
 local fs = require '@dream/fs'
-local openmw = require '@openmw'
+local openmw = require '@openmw-install'
 local vfs = require '@vfs'
 
 -- A build without the verified toolchain runs Luau slower than a release does, so a number from
